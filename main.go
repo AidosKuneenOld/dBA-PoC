@@ -46,7 +46,7 @@ var ranDag bool
 type tx struct {
 	prevtx1  *tx
 	prevtx2  *tx
-	validity [validators]bool //referenced by validator n : true/false // 1st reference / 2nd reference for double spent
+	validity [validators]bool //referenced by validator n : true/false
 	confirm  bool
 	count    int // tx with same count are double spents
 }
@@ -73,7 +73,6 @@ func newTx(n int, txList []*tx) []*tx {
 		tx1 := txList[index1]
 		tx2 := txList[index2]
 		tx := tx{tx1, tx2, [validators]bool{}, false, i}
-		//fmt.Printf("newTx: %v, confirmed: %v, references: %v,%v \n", tx.count, tx.confirm, tx.prevtx1.count, tx.prevtx2.count)
 		txList = append(txList, &tx)
 	}
 	return txList
@@ -97,7 +96,6 @@ func insertDS(txList []*tx) []*tx {
 	tx2 := txList[index2]
 	tx := tx{tx1, tx2, [validators]bool{}, false, ran}
 	dsG = append(dsG, &tx)
-	//fmt.Printf("DS: %v, confirmed: %v, references: %v,%v \n", tx.count, tx.confirm, tx.prevtx1.count, tx.prevtx2.count)
 	txList = append(txList, &tx)
 	return txList
 }
@@ -123,13 +121,11 @@ func getTips(txList []*tx) []*tx {
 			noTip[tx.prevtx1] = struct{}{}
 			noTip[tx.prevtx2] = struct{}{}
 		}
-
 	}
 	// check for tips
 	for _, tx := range txList {
 		if _, exists := noTip[tx]; !exists {
 			tip = append(tip, tx)
-			//fmt.Printf("tips: %v, confirmed: %v, references: %v,%v \n", tx.count, tx.confirm, tx.prevtx1.count, tx.prevtx2.count)
 		}
 	}
 
@@ -175,7 +171,6 @@ func traverse(tx1 tx, validator int, ds map[tx]struct{}, count map[int]struct{},
 				fmt.Printf("Unconfirmed DS detected can't confirm tip: %v \n", tx1.prevtx1.count)
 				*result = false
 			}
-			//fmt.Printf("Tip: %v %v %v \n", tx1.count, tx1.prevtx1.count, tx1.prevtx2.count)
 			ds[tx1] = struct{}{}
 			count[tx1.count] = struct{}{}
 		}
@@ -190,7 +185,6 @@ func traverse(tx1 tx, validator int, ds map[tx]struct{}, count map[int]struct{},
 					fmt.Printf("Unconfirmed DS1 detected can't confirm tip: %v %v %v \n", tx1.count, tx1.prevtx1.count, tx1.prevtx2.count)
 					*result = false
 				}
-				//fmt.Printf("Tip1: %v \n", tx1.prevtx1.count)
 				count[tx1.prevtx1.count] = struct{}{}
 				ds[*tx1.prevtx1] = struct{}{}
 				traverse(*tx1.prevtx1, validator, ds, count, result)
@@ -203,7 +197,6 @@ func traverse(tx1 tx, validator int, ds map[tx]struct{}, count map[int]struct{},
 					fmt.Printf("Unconfirmed DS2 detected can't confirm tip: %v %v %v \n", tx1.count, tx1.prevtx1.count, tx1.prevtx2.count)
 					*result = false
 				}
-				//fmt.Printf("Tip2: %v %v \n", tx1.prevtx1.count, tx1.prevtx2.count)
 				count[tx1.prevtx1.count] = struct{}{}
 				ds[*tx1.prevtx1] = struct{}{}
 				traverse(*tx1.prevtx2, validator, ds, count, result)
@@ -220,8 +213,6 @@ func validateTx(tips []*tx, v []vtx, validator int) []vtx {
 	dsconf2 := make(map[int]*tx)
 
 	for _, tip := range tips {
-		//fmt.Printf("Validator: %v\n", validator)
-		//fmt.Printf("tx: %v, confirmed: %v, references: %v,%v \n", tip.count, tip.confirm, tip.prevtx1.count, tip.prevtx2.count)
 		// initialize for every tip
 		dsTip := make(map[tx]struct{})
 		count := make(map[int]struct{})
@@ -233,7 +224,6 @@ func validateTx(tips []*tx, v []vtx, validator int) []vtx {
 			v = append(v, vtx{&v[len(v)-1], tip, v[len(v)-1].count + 1})
 			//confirm tip and tx refered by that tip
 			confirm(tip, validator, dsconf1, dsconf2)
-			//fmt.Printf("Choose tx: %v, confirmed: %v, references: %v,%v \n", tip.count, tip.validity, tip.prevtx1.count, tip.prevtx2.count)
 		}
 	}
 	return v
@@ -242,12 +232,10 @@ func validateTx(tips []*tx, v []vtx, validator int) []vtx {
 //collect all tx referenced by vtx n
 func checkDS(vtx1 []vtx, validator int) {
 	//since vtx are in order we can determine the ds here
-	//collect all tx referenced by vtx n
 	collect := make(map[tx]struct{})
 	ref := make(map[int]*tx)
 	for _, svtx := range vtx1 {
 		//collect all tx referenced by vtx n
-		//fmt.Printf("Validator: %v, vtx: %v\n", validator, svtx.count)
 		if svtx.tx != nil {
 			collectTx(svtx.tx, collect, ref, validator)
 		}
@@ -258,7 +246,6 @@ func collectTx(tx *tx, collect map[tx]struct{}, ref map[int]*tx, validator int) 
 	if _, exists := collect[*tx]; !exists {
 		if _, exists := ref[tx.count]; exists {
 			//ds only confirm oldest
-			fmt.Printf("DS: %v\n", tx.count)
 			tx.validity[validator] = false
 		}
 		collect[*tx] = struct{}{}
@@ -270,7 +257,6 @@ func collectTx(tx *tx, collect map[tx]struct{}, ref map[int]*tx, validator int) 
 			if _, exists := collect[*tx.prevtx1]; !exists {
 				if _, exists := ref[tx.prevtx1.count]; exists {
 					//ds only confirm oldest
-					fmt.Printf("DS1: %v\n", tx.prevtx1.count)
 					tx.prevtx1.validity[validator] = false
 				}
 				ref[tx.prevtx1.count] = tx.prevtx1
@@ -282,7 +268,6 @@ func collectTx(tx *tx, collect map[tx]struct{}, ref map[int]*tx, validator int) 
 			if _, exists := collect[*tx.prevtx2]; !exists {
 				if _, exists := ref[tx.prevtx2.count]; exists {
 					//ds only confirm oldest
-					fmt.Printf("DS2: %v\n", tx.prevtx2.count)
 					tx.prevtx2.validity[validator] = false
 				}
 				ref[tx.prevtx2.count] = tx.prevtx2
@@ -599,14 +584,12 @@ func main() {
 				graph.AddEdge(edge1)
 				graph.AddEdge(edge2)
 			}
-			//fmt.Printf("tx: %v, confirmed: %v, references: %v,%v validity: %v \n", tx.count, tx.confirm, tx.prevtx1.count, tx.prevtx2.count, tx.validity)
 		}
 
 	}
 
 	//print vtx
 	for i := 0; i < validators; i++ {
-		//fmt.Printf("Validator %v \n", i)
 		for j, vtx := range vList[i] {
 			if j == 0 {
 				node := dot.NewNode("V" + strconv.Itoa(i) + "=" + strconv.Itoa(vtx.count))
@@ -637,7 +620,6 @@ func main() {
 					graph.AddEdge(edge1)
 					graph.AddEdge(edge2)
 				}
-				//fmt.Printf("vtx: %v, prev: %v, tx: %v \n", vtx.count, vtx.prev.count, vtx.tx.count)
 			}
 		}
 	}
